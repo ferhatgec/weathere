@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+
+# MIT License
+# 
+# Copyright (c) 2021 Ferhat Geçdoğan All Rights Reserved.
+# Distributed under the terms of the MIT License.
+#
+
+from bs4 import BeautifulSoup
+import requests, json
+
+# TODO: Add more informations about Wind && Humidity
+
+city=None
+country=None
+location=None
+
+weather=None
+
+# Default: 'Celcius'
+temperature=None
+
+# Weather forecast as string
+weather_forecast=None
+
+temperature_magic_code='CurrentConditions--tempValue--3KcTQ'
+weather_forecast_magic_code='CurrentConditions--phraseValue--2xXSr'
+
+ip_info='https://ipinfo.io/json'
+weather_info='https://weather.com/weather/today/l/'
+
+	
+# ASCII arts taken from https://github.com/schachmat/wego/blob/master/frontends/ascii-art-table.go 	
+ascii_arts = {
+    'Fair'   : '\033[38;5;226m    \\   /    \033[0m {country}\n\033[38;5;226m     .-.     \033[0m {weather}\n\033[38;5;226m  ‒ (   ) ‒  \033[0m\n\033[38;5;226m     `-᾿     \033[0m {temperature}\n\033[38;5;226m    /   \\    \033[0m',
+    
+    'Cloudy' : '\033[38;5;240;1m     .--.    \033[0m {country}\n\033[38;5;240;1m  .-(    ).  \033[0m {weather}\n\033[38;5;240;1m (___.__)__) \033[0m {temperature}\n',
+    
+    'Mostly Cloudy' : '\033[38;5;240;1m     .--.    \033[0m {country}\n\033[38;5;240;1m  .-(    ).  \033[0m {weather}\n\033[38;5;240;1m (___.__)__) \033[0m {temperature}\n',
+    
+    'Partly Cloudy' : '\033[38;5;226m   \\  /\033[0m       {country}\n\033[38;5;226m _ /\"\"\033[38;5;250m.-.    \033[0m {weather}\n\033[38;5;226m   \\_\033[38;5;250m(   ).  \033[0m {temperature}\n\033[38;5;226m   /\033[38;5;250m(___(__) \033[0m',
+    
+    'Mostly Sunny'  : '\033[38;5;226m    \\   /    \033[0m {country}\n\033[38;5;226m     .-.     \033[0m {weather}\n\033[38;5;226m  ‒ (   ) ‒  \033[0m {temperature}\n\033[38;5;226m     `-᾿     \033[0m\n\033[38;5;226m    /   \\    \033[0m',
+    
+    'Mostly Clear'  :  '\033[38;5;240;1m     .--.    \033[0m {country}\n\033[38;5;240;1m  .-(    ).  \033[0m {weather}\n\033[38;5;240;1m (___.__)__) \033[0m {temperature}\n',
+    
+    'Clear'         : '\033[38;5;240;1m     .--.    \033[0m {country}\n\033[38;5;240;1m  .-(    ).  \033[0m {weather}\n\033[38;5;240;1m (___.__)__) \033[0m {temperature}\n',
+    
+    'Rain/Snow Showers' : '\033[38;5;250m     .-.     \033[0m {country}\n\033[38;5;250m    (   ).   \033[0m {weather}\n\033[38;5;250m   (___(__)  \033[0m {temperature}\n\033[38;5;111m    ʻ \033[38;5;255m*\033[38;5;111m ʻ \033[38;5;255m*  \033[0m\n\033[38;5;255m   *\033[38;5;111m ʻ \033[38;5;255m*\033[38;5;111m ʻ   \033[0m',
+    
+    'Few Snow Showers'  : '\033[38;5;226m _`/\"\"\033[38;5;250m.-.    \033[0m {country}\n\033[38;5;226m  ,\\_\033[38;5;250m(   ).  \033[0m {weather}\n\033[38;5;226m   /\033[38;5;250m(___(__) \033[0m {temperature}\n\033[38;5;255m     *  *  * \033[0m\n\033[38;5;255m    *  *  *  \033[0m',
+    
+    'Snow Showers'      : '\033[38;5;226m _`/\"\"\033[38;5;240;1m.-.    \033[0m {country}\n\033[38;5;226m  ,\\_\033[38;5;240;1m(   ).  \033[0m {weather}\n\033[38;5;226m   /\033[38;5;240;1m(___(__) \033[0m {temperature}\n\033[38;5;255;1m    * * * *  \033[0m\n\033[38;5;255;1m   * * * *   \033[0m\n',
+    
+    'Snow'              : '\033[38;5;240;1m     .-.     \033[0m {country}\n\033[38;5;240;1m    (   ).   \033[0m {weather}\n\033[38;5;240;1m   (___(__)  \033[0m {temperature}\n\033[38;5;255;1m   * * * *   \033[0m\n\033[38;5;255;1m  * * * *    \033[0m',
+    
+    'Snow/Wind'         : '\033[38;5;250m     .-.     \033[0m {country}\n\033[38;5;250m    (   ).   \033[0m {weather}\n\033[38;5;250m   (___(__)  \033[0m {temperature}\n\033[38;5;255m    *  *  *  \033[0m\n\033[38;5;255m   *  *  *   \033[0m',
+    
+    'Snow Showers/Wind' : '\033[38;5;250m     .-.     \033[0m {country}\n\033[38;5;250m    (   ).   \033[0m {weather}\n\033[38;5;250m   (___(__)  \033[0m {temperature}\n\033[38;5;255m    *  *  *  \033[0m\n\033[38;5;255m   *  *  *   \033[0m',
+    
+    'PM Snow Showers'   : '\033[38;5;250m     .-.     \033[0m {country}\n\033[38;5;250m    (   ).   \033[0m {weather}\n\033[38;5;250m   (___(__)  \033[0m {temperature}\n\033[38;5;255m    *  *  *  \033[0m\n\033[38;5;255m   *  *  *   \033[0m',
+    
+    'AM Snow Showers'   : '\033[38;5;250m     .-.     \033[0m {country}\n\033[38;5;250m    (   ).   \033[0m {weather}\n\033[38;5;250m   (___(__)  \033[0m {temperature}\n\033[38;5;255m    *  *  *  \033[0m\n\033[38;5;255m   *  *  *   \033[0m',
+    
+    'Rain/Snow'         : '\033[38;5;250m     .-.     \033[0m {country}\n\033[38;5;250m    (   ).   \033[0m {weather}\n\033[38;5;250m   (___(__)  \033[0m {temperature}\n\033[38;5;111m    ʻ \033[38;5;255m*\033[38;5;111m ʻ \033[38;5;255m*  \033[0m\n\033[38;5;255m   *\033[38;5;111m ʻ \033[38;5;255m*\033[38;5;111m ʻ   \033[0m',
+    
+    'AM Rain/Snow Showers' : '\033[38;5;250m     .-.     \033[0m {country}\n\033[38;5;250m    (   ).   \033[0m {weather}\n\033[38;5;250m   (___(__)  \033[0m {temperature}\n\033[38;5;111m    ʻ \033[38;5;255m*\033[38;5;111m ʻ \033[38;5;255m*  \033[0m\n\033[38;5;255m   *\033[38;5;111m ʻ \033[38;5;255m*\033[38;5;111m ʻ   \033[0m',
+    
+    'PM Rain/Snow Showers' : '\033[38;5;250m     .-.     \033[0m {country}\n\033[38;5;250m    (   ).   \033[0m {weather}\n\033[38;5;250m   (___(__)  \033[0m {temperature}\n\033[38;5;111m    ʻ \033[38;5;255m*\033[38;5;111m ʻ \033[38;5;255m*  \033[0m\n\033[38;5;255m   *\033[38;5;111m ʻ \033[38;5;255m*\033[38;5;111m ʻ   \033[0m',
+    
+    'AM Showers'    : '\033[38;5;226m _`/\"\"\033[38;5;240;1m.-.    \033[0m {country}\n\033[38;5;226m  ,\\_\033[38;5;240;1m(   ).  \033[0m {weather}\n\033[38;5;226m   /\033[38;5;240;1m(___(__) \033[0m {temperature}\n\033[38;5;21;1m   ‚ʻ‚ʻ‚ʻ‚ʻ  \033[0m\n\033[38;5;21;1m   ‚ʻ‚ʻ‚ʻ‚ʻ  \033[0m\n'
+}
+
+
+# Update user-agent
+headers = requests.utils.default_headers()
+headers.update({
+    'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:84.0) Gecko/20100101 Firefox/83.0',
+})
+
+def append(string: str):
+    return weather_info + string + '?&temp=c'
+
+def set_weather_ascii_art(weather_forecast_str: str, country_str: str, temperature_str: str):
+    
+    if weather_forecast_str in ascii_arts:
+        __ascii = ascii_arts[weather_forecast_str]
+        
+        print(__ascii.format(country = country_str, weather = weather_forecast_str, temperature = temperature_str))
+            
+        
+
+def get_location():
+    location_content = requests.get(ip_info, headers=headers).text
+    
+    __json = json.loads(location_content)
+    
+    city     = __json['city']
+    country  = __json['country']
+    location = __json['loc']
+    
+    weather_content = requests.get(append(location), headers=headers).text
+    parse           = BeautifulSoup(weather_content, "lxml")
+    
+    temperature     = parse.find('span', class_=temperature_magic_code).text
+    weather_forecast= parse.find('div', class_=weather_forecast_magic_code).text
+    
+    set_weather_ascii_art(weather_forecast, city + ' ' + country, temperature)
+    
+get_location()
