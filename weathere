@@ -19,6 +19,7 @@ weather=None
 
 # Default: 'Celcius'
 temperature=None
+high_low=None
 
 # Weather forecast as string
 weather_forecast=None
@@ -86,7 +87,7 @@ def set_weather_ascii_art(weather_forecast_str: str, country_str: str, temperatu
     if weather_forecast_str in ascii_arts:
         __ascii = ascii_arts[weather_forecast_str]
         
-        print(__ascii.format(country = country_str, weather = weather_forecast_str, temperature = temperature_str))
+        print(__ascii.format(country = country_str, weather = '\033[0;93m' + weather_forecast_str, temperature = temperature_str))
             
         
 
@@ -104,7 +105,9 @@ def get_location():
     
     temperature     = parse.find('span', class_=temperature_magic_code).text
     weather_forecast= parse.find('div', class_=weather_forecast_magic_code).text
+    high_low        = parse.find('div', class_='WeatherDetailsListItem--wxData--23DP5').text
     
-    set_weather_ascii_art(weather_forecast, city + ' ' + country, temperature)
+    
+    set_weather_ascii_art(weather_forecast, '\033[0;96m' + city + ' ' + '\033[0;91m' + country, '\033[0;94m' + temperature + '\033[0;97m' + ' | ' + '\033[0;92m' + high_low)
     
 get_location()
